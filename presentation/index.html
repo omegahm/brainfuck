@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Brainfuck?</title>
+    <link rel="stylesheet" href="reveal.js-3.3.0/css/reveal.css" />
+    <link
+      rel="stylesheet"
+      href="reveal.js-3.3.0/css/theme/white.css"
+      id="theme"
+    />
+    <link rel="stylesheet" href="reveal.js-3.3.0/lib/css/monokai.css" />
+    <link rel="stylesheet" href="font-awesome/css/font-awesome.min.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Open+Sans&amp;display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section data-markdown data-separator="^\n---\n$">
+          <script type="text/template">
+            ## Brainfuck?
+
+            #### A golfing experience 🏌🏻‍♂️
+
+            ---
+
+            ## What's a "Brainfuck"?
+
+            Imagine an endless series of buckets
+
+            <span style="font-size: 60px;">🪣</span>
+            <span style="font-size: 55px;">🪣</span>
+            <span style="font-size: 50px;">🪣</span>
+            <span style="font-size: 45px;">🪣</span>
+            <span style="font-size: 40px;">🪣</span>
+            <span style="font-size: 35px;">🪣</span>
+            <span style="font-size: 30px;">🪣</span>
+            <span style="font-size: 25px;">🪣</span>
+            <span style="font-size: 20px;">🪣</span>
+            <span style="font-size: 15px;">🪣</span>
+            <span style="font-size: 10px;">🪣</span>
+            <span style="font-size:  5px;">🪣</span>
+
+            We can add, subtract, read, and write to and from each bucket.
+
+            ---
+
+            ## Brainfuck specs
+
+            Only these are valid Brainfuck characters:
+            ```brainfuck
+            +-<>.,[]
+            ```
+
+            ```brainfuck
+            + # => Add one to current bucket
+            - # => Subtract one from current bucket
+            < # => Move "bucket-pointer" to the left
+            > # => Move "bucket-pointer" to the right
+            . # => Write byte from current bucket to STDOUT
+            , # => Read one byte from STDIN into current bucket
+            [ # => If current bucket is zero, go to matching ]
+            ] # => If current bucket is non-zero, go back to matching [
+
+            # Everything else is comments.
+            ```
+
+            ---
+
+            ## Wait? What?
+
+            Bytes are written to `STDOUT` as ASCII.
+
+            So "`A`" would be "`65`".
+
+            ```brainfuck
+            ++++++++++++++++++++ # bucket 0 has "20"
+            ++++++++++++++++++++ # bucket 0 has "40"
+            ++++++++++++++++++++ # bucket 0 has "60"
+            +++++                # bucket 0 has "65"
+            .                    # outputs "A"
+            ```
+
+            ---
+
+            ## Think smarter
+
+            65 = 13 * 5
+
+            ```brainfuck
+            >+++++++++++++ # bucket 1 has "13"
+            [<+++++>-]     # bucket 0 has 13 * 5 = "65"
+            <.             # outputs "A"
+            ```
+
+            ---
+
+            ## Hello world!
+
+            ```brainfuck
+            >++++++++[-<+++++++++>]<.                  # H  ( 72)
+            >>+>-[+]++>++>+++[>[->+++<<+++>]<<]>-----. # e  (101)
+            >->+++.                                    # l  (108)
+            .                                          # l  (108)
+            +++.                                       # o  (111)
+            >-.                                        #    ( 32)
+            <<+[>[+>+]>>]<--------------.              # w  (119)
+            >>.                                        # o  (111)
+            +++.                                       # r  (114)
+            ------.                                    # l  (108)
+            --------.                                  # d  (100)
+            >+.                                        # !  ( 33)
+            >+.                                        # \n ( 10)
+            ```
+
+            ---
+
+            ## Let's write a Brainfuck interpreter
+
+            In Ruby <img style="box-shadow: none; border: none; background: none; margin: 0;" src="logo.png" />, of course
+
+            ---
+
+            To start we need to load the **program**
+
+            ```ruby
+            program = File.read(ARGV.first)
+            ```
+
+            Now we can read the program from a file with
+
+            ```bash
+            $ ruby bf.rb input.bf
+            ```
+
+            ---
+
+            Next is the **program counter** and our **main loop**
+
+            ```ruby
+            program = File.read(ARGV.first)
+            pc = 0
+
+            while pc < program.size
+              ...
+            end
+            ```
+
+            ---
+
+            We also need our **buckets**, as well as a **bucket-pointer**
+
+            ```ruby
+            ...
+            bp = 0
+            buckets = [0] # We start with only one bucket, initialized with 0
+            ...
+            ```
+
+            ---
+
+            We are ready to implement the **main loop**
+
+            Move that **bucket-pointer**
+
+            ```ruby
+            while pc < program.size
+              case program[pc]
+              when ">"
+                bp += 1
+                buckets[bp] ||= 0
+              when "<"
+                bp -= 1
+                # buckets[bp] ||= 0 # Not necessary, as your bucket-pointer
+                                    # is not allowed to be negative.
+                                    # We could `fail` if it was.
+              ...
+              end
+            end
+            ```
+
+            ---
+
+            Now we can **add** and **subtract**
+
+            ```ruby
+            while pc < program.size
+              case program[pc]
+              ...
+              when "+"
+                buckets[bp] += 1
+              when "-"
+                buckets[bp] -= 1
+              ...
+              end
+            end
+            ```
+
+            ---
+
+            Let's **read** and **write**
+
+            ```ruby
+            while pc < program.size
+              case program[pc]
+              ...
+              when "."
+                STDOUT.putc buckets[bp].chr # Turns e.g. 65 into "A"
+              when ","
+                buckets[bp] = STDIN.getc.ord # Turns e.g. "A" into 65
+              ...
+              end
+            end
+            ```
+
+            ---
+
+            Now for the **hard** part
+
+            ```ruby
+            while pc < program.size
+              case program[pc]
+              ...
+              when "["
+                ???
+              when "]"
+                ???
+              ...
+              end
+            end
+            ```
+
+            ---
+
+            **Forward!**
+
+            <small style="font-size: 12px;">If we are zero</small>
+
+            ```ruby
+            ...
+            when "["
+              if buckets[bp] == 0
+                pc += 1 until program[pc] == "]"
+              end
+            ...
+            ```
+
+            <span class="fragment">
+              WRONG! 😅
+            </span>
+
+            ---
+
+            Consider
+
+            ```brainfuck
+            ++[>+[>]<-]
+            ```
+
+            Nonsense program, with a nested loop.
+
+            ---
+
+            We need a **depth counter**
+
+            ```ruby
+            ...
+            when "["
+              if buckets[bp] == 0
+                depth = 1
+                while depth > 0
+                  pc += 1
+                  depth += 1 if program[pc] == "["
+                  depth -= 1 if program[pc] == "]"
+                end
+              end
+            ...
+            ```
+
+            ---
+
+            **Backward** can be done in a similar fashion
+
+            ```ruby
+            ...
+            when "]"
+              if buckets[bp] != 0
+                depth = 1
+                while depth > 0
+                  pc -= 1
+                  depth -= 1 if program[pc] == "["
+                  depth += 1 if program[pc] == "]"
+                end
+              end
+            ...
+            ```
+
+            ---
+
+            A bit of **DRYing** up
+
+            ```ruby
+            ...
+            when "["
+              depth, direction = 1, 1 if buckets[bp] == 0
+            when "]"
+              depth, direction = 1, -1 if buckets[bp] != 0
+            end # end of our case
+
+            while depth > 0
+              pc += direction
+              depth += direction if program[pc] == "["
+              depth -= direction if program[pc] == "]"
+            end
+            ...
+            ```
+
+            ---
+
+            All we need now, is to move **forward** in the program
+
+            ```ruby
+            while pc < program.size
+              case program[pc]
+              ...
+              end
+
+              pc += 1
+            end
+            ```
+
+            ---
+
+            **Behold!** Our Brainfuck interpreter
+
+            ```ruby
+            program = File.read(ARGV.first)
+            pc = 0
+            bp = 0
+            buckets = [0]
+            depth = 0
+            direction = 1
+
+            while pc < program.size
+              case program[pc]
+              when ">"
+                bp += 1
+                buckets[bp] ||= 0
+              when "<"
+                bp -= 1
+              when "+"
+                buckets[bp] += 1
+              when "-"
+                buckets[bp] -= 1
+              when "."
+                STDOUT.putc buckets[bp].chr
+              when ","
+                buckets[bp] = STDIN.getc.ord
+              when "["
+                if buckets[bp] == 0
+                  depth, direction = 1, 1
+                end
+              when "]"
+                if buckets[bp] != 0
+                  depth, direction = 1, -1
+                end
+              end
+
+              while depth > 0
+                pc += direction
+                depth += direction if program[pc] == "["
+                depth -= direction if program[pc] == "]"
+              end
+
+              pc += 1
+            end
+            ```
+
+            40 lines of code, *but it doesn't fit the screen!*</span></span>
+
+            ---
+
+            ## Let's go golfing! 🏌🏻‍♂️
+
+            ---
+
+            <blockquote>&ldquo;**Code golf** is a type of **recreational computer programming competition** in
+            which participants strive to achieve the **shortest possible source code**
+            that implements a certain **algorithm**.&rdquo;</blockquote>
+
+            <span style="font-size: 12px;">- https://en.wikipedia.org/wiki/Code_golf</span>
+
+            ---
+
+            Let's try it out.
+
+            Our original code is 40 lines (650 bytes)
+
+            ---
+
+            ## Disclaimer
+
+            Don't do this to the **production** code.
+
+            This is for fun and learning *only*!
+
+            🥳
+
+            ---
+
+            We begin by removing all the long names.
+
+            `a`, `b`, `c` and so on is better<sup>&dagger;
+
+            <span style="font-size: 14px;">&dagger; for this type of programming. Don't do this at home!</span>
+
+            ---
+
+            ```ruby
+            a = File.read(ARGV.first)
+            d = 0
+            c = 0
+            b = [0]
+            n = 0
+            m = 1
+
+            while d < a.size
+              case a[d]
+              when ">"
+                c += 1
+                b[c] ||= 0
+              when "<"
+                c -= 1
+              when "+"
+                b[c] += 1
+              when "-"
+                b[c] -= 1
+              when "."
+                STDOUT.putc b[c].chr
+              when ","
+                b[c] = STDIN.getc.ord
+              when "["
+                if b[c] == 0
+                  n, m = 1, 1
+                end
+              when "]"
+                if b[c] != 0
+                  n, m = 1, -1
+                end
+              end
+
+              while n > 0
+                d += m
+                n += m if a[d] == "["
+                n -= m if a[d] == "]"
+              end
+
+              d += 1
+            end
+            ```
+
+            Still 40 lines, but now only **483 bytes**.
+
+            We lost **167 bytes** already!
+
+            ---
+
+            Let's move all the variables to a single line and lose some of the spaces not needed.
+
+            ```ruby
+            a,d,c,b,n,m=File.read(ARGV.first),0,0,[0],0,1
+            while d<a.size
+            case a[d]
+            when ">"
+            c+=1
+            b[c]||=0
+            when "<"
+            c-=1
+            when "+"
+            b[c]+=1
+            when "-"
+            b[c]-=1
+            when "."
+            STDOUT.putc b[c].chr
+            when ","
+            b[c]=STDIN.getc.ord
+            when "["
+            n,m=1,1 if b[c]==0
+            when "]"
+            n,m=1,-1 if b[c]!=0
+            end
+            while n>0
+            d+=m
+            n+=m if a[d]=="["
+            n-=m if a[d]=="]"
+            end
+            d+=1
+            end
+            ```
+
+            **28 lines, 326 bytes.**
+
+            That's another 157 bytes!
+
+            ---
+
+            Only one case is two lines. Let's fix that one first
+
+            ```ruby
+            ...
+            when ">"
+             c+=1
+             b[c]||=0
+            ...
+            ```
+
+            Well, `c+=1` returns the new value of `c`, so
+
+            ```ruby
+            ...
+            when ">"
+             b[c+=1]||=0
+            ...
+            ```
+
+            is the same.
+
+            ---
+
+            `File.read(ARGV.first)` actually has a *cool* shortcut `$<.read`:
+
+            So
+
+            ```ruby
+            a,d,c,b,n,m=File.read(ARGV.first),0,0,[0],0,1
+            ```
+
+            can be rewritten to
+
+            ```ruby
+            a,d,c,b,n,m=$<.read,0,0,[0],0,1
+            ```
+
+            ---
+
+            Also, Ruby has a splat operator, which compacts the last value(s) of multiple value assignments into an array:
+
+            ```ruby
+            a,m,*b=$<.read,1,c=d=n=0
+            ```
+
+            ---
+
+            ```ruby
+            STDOUT.putc b[c].chr
+            ```
+
+            is the same as
+
+            ```ruby
+            $><<b[c].chr
+            ```
+
+            ---
+
+            Okay. Now we're at 295 bytes on 27 lines.
+
+            ```ruby
+            a,m,*b=$<.read,1,c=d=n=0
+            while d<a.size
+            case a[d]
+            when ">"
+            b[c+=1]||=0
+            when "<"
+            c-=1
+            when "+"
+            b[c]+=1
+            when "-"
+            b[c]-=1
+            when "."
+            $><<b[c].chr
+            when ","
+            b[c]=STDIN.getc.ord
+            when "["
+            n,m=1,1 if b[c]==0
+            when "]"
+            n,m=1,-1 if b[c]!=0
+            end
+            while n>0
+            d+=m
+            n+=m if a[d]=="["
+            n-=m if a[d]=="]"
+            end
+            d+=1
+            end
+            ```
+
+            ---
+
+            Single characters in Ruby has a shortcut.
+            We don't need the quotes, because
+
+            ```ruby
+            "a" == ?a
+            ```
+
+            We can thus replace all `"x"` with `?x`.
+
+            That's one byte saved for every string!
+
+            ---
+
+            Let's also remove the `case` to save some space.
+
+            We can short-curcuit all the statements instead, so
+
+            ```ruby
+            ...
+            t=a[d]
+            t==?>&&b[c+=1]||=0
+            ...
+            ```
+
+            ---
+
+            Now we're getting somewhere. 266 bytes, 18 lines of code.
+
+            ```ruby
+            a,m,*b=$<.read,1,c=d=n=0
+            while d<a.size
+            t=a[d]
+            t==?>&&b[c+=1]||=0
+            t==?<&&c-=1
+            t==?+&&b[c]+=1
+            t==?-&&b[c]-=1
+            t==?.&&$><<b[c].chr
+            t==?,&&b[c]=STDIN.getc.ord
+            b[c]==0&&t==?[&&(n,m=1,1)
+            b[c]!=0&&t==?]&&(n,m=1,-1)
+            while n>0
+            d+=m
+            a[d]==?[&&n+=m
+            a[d]==?]&&n-=m
+            end
+            d+=1
+            end
+            ```
+
+            ---
+
+            ```ruby
+            \nend\n
+            ```
+
+            is five bytes. Instead of
+
+            ```ruby
+            while d<a.size
+            ...
+            end
+            ```
+
+            we can do
+
+            ```ruby
+            (...)while d<a.size
+            ```
+
+            Also `a[d]` is `nil`, if `d < a.size`
+
+            ```ruby
+            (...)while a[d]
+            ```
+
+            ---
+
+            The cases for `[` and `]` are almost the same. Let's merge them:
+
+            ```ruby
+            m=1
+            ...
+            b[c]==0&&t==?[&&(n,m=1,1)
+            b[c]!=0&&t==?]&&(n,m=1,-1)
+            ...
+            ```
+
+            can instead be written as
+
+            ```ruby
+            m=-1
+            ...
+            b[c]==0?t==?[&&n=m=1:t==?]&&n=1
+            ...
+            ```
+
+            <span style="font-size: 12px;">Yeah, we broke the syntax highlighter.</span>
+
+            ---
+
+            **234 bytes!** and it finally fits on a slide!
+
+            ```ruby
+            a,*b=$<.read,c=d=n=0
+            (t,m=a[d],-1
+            t==?>&&b[c+=1]||=0
+            t==?<&&c-=1
+            t==?+&&b[c]+=1
+            t==?-&&b[c]-=1
+            t==?.&&$><<b[c].chr
+            t==?,&&b[c]=STDIN.getc.ord
+            b[c]==0?t==?[&&n=m=1:t==?]&&n=1
+            (a[d+=m]==?[&&n+=m
+            a[d]==?]&&n-=m)while n>0
+            d+=1)while a[d]
+            ```
+
+            ---
+
+            We can replace
+
+            ```ruby
+            t==?>
+            ```
+
+            with
+
+            ```ruby
+            t[?>]
+            ```
+
+            It's the same amount of bytes, but less friendly. 💩
+
+            ---
+
+            As `m` is always `-1` for the main part of the loop, we can also replace all `-1`s with `m`.
+
+            Lastly `until` is the same amount of bytes as `while`, so
+
+            ```ruby
+            while n>0
+            ```
+
+            is the same as
+
+            ```ruby
+            until n<1
+            ```
+
+            ---
+
+            ## Brainfuck'd!
+
+            ```ruby
+            a,*b=$<.read,c=d=n=0
+            (t,m=a[d],-1
+            t[?>]&&b[c-=m]||=n
+            t[?<]&&c+=m
+            t[?+]&&b[c]-=m
+            t[?-]&&b[c]+=m
+            t[?.]&&$><<b[c].chr
+            t[?,]&&b[c]=STDIN.getc.ord
+            n==b[c]?t[?[]&&n=m=1:t[?]]&&n=1
+            (a[d+=m][?[]&&n+=m
+            a[d][?]]&&n-=m)until n<1
+            d+=1)while a[d]
+            ```
+
+            233 bytes.
+
+            Thanks for playing along.
+            Any questions?
+          </script>
+        </section>
+      </div>
+    </div>
+    <script src="reveal.js-3.3.0/lib/js/head.min.js"></script>
+    <script src="reveal.js-3.3.0/js/reveal.js"></script>
+    <script>
+      Reveal.initialize({
+        width: 1000,
+        controls: false,
+        progress: true,
+        history: true,
+        center: true,
+
+        // Optional libraries used to extend on reveal.js
+        dependencies: [
+          {
+            src: "reveal.js-3.3.0/lib/js/classList.js",
+            condition: function () {
+              return !document.body.classList;
+            },
+          },
+          {
+            src: "reveal.js-3.3.0/plugin/markdown/marked.js",
+            condition: function () {
+              return !!document.querySelector("[data-markdown]");
+            },
+          },
+          {
+            src: "reveal.js-3.3.0/plugin/markdown/markdown.js",
+            condition: function () {
+              return !!document.querySelector("[data-markdown]");
+            },
+          },
+          {
+            src: "reveal.js-3.3.0/plugin/highlight/highlight.js",
+            async: true,
+            callback: function () {
+              hljs.initHighlightingOnLoad();
+            },
+          },
+        ],
+      });
+    </script>
+  </body>
+</html>
